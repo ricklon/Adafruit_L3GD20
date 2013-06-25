@@ -26,6 +26,7 @@ Adafruit_L3GD20::Adafruit_L3GD20(int8_t cs, int8_t miso, int8_t mosi, int8_t clk
   _miso = miso;
   _mosi = mosi;
   _clk = clk;
+
 }
 
 Adafruit_L3GD20::Adafruit_L3GD20(void) {
@@ -35,15 +36,22 @@ Adafruit_L3GD20::Adafruit_L3GD20(void) {
 
 bool Adafruit_L3GD20::begin(l3gd20Range_t rng, byte addr)
 {
+#if defined(USE_I2C) 
   if (_cs == -1) {
     Wire.begin();
   } else {
+#endif
     pinMode(_cs, OUTPUT);
     pinMode(_clk, OUTPUT);
     pinMode(_mosi, OUTPUT);
     pinMode(_miso, INPUT);
     digitalWrite(_cs, HIGH);
+#if defined(USE_I2C) 
   }
+#endif
+  #if defined(HW_SPI)
+	SPI.begin()
+  #endif
 
   address = addr;
   range = rng;
@@ -147,6 +155,7 @@ void Adafruit_L3GD20::read()
 { 
   uint8_t xhi, xlo, ylo, yhi, zlo, zhi;
 
+#if defined(USE_I2C) 
   if (_cs == -1) {
     Wire.beginTransmission(address);
     // Make sure to set address auto-increment bit
@@ -165,6 +174,8 @@ void Adafruit_L3GD20::read()
     zhi = Wire.read();
 
   } else {
+#endif
+
     digitalWrite(_clk, HIGH);
     digitalWrite(_cs, LOW);
 
@@ -178,7 +189,10 @@ void Adafruit_L3GD20::read()
     zhi = SPIxfer(0xFF);
 
     digitalWrite(_cs, HIGH);
+#if defined(USE_I2C) 
   }
+#endif
+
   // Shift values to create properly formed integer (low byte first)
   data.x = (xlo | (xhi << 8));
   data.y = (ylo | (yhi << 8));
@@ -210,6 +224,7 @@ void Adafruit_L3GD20::read()
  ***************************************************************************/
 void Adafruit_L3GD20::write8(l3gd20Registers_t reg, byte value)
 {
+#if defined(USE_I2C) 
   if (_cs == -1) {
     // use i2c
     Wire.beginTransmission(address);
@@ -217,21 +232,24 @@ void Adafruit_L3GD20::write8(l3gd20Registers_t reg, byte value)
     Wire.write(value);
     Wire.endTransmission();
   } else {
+#endif
     digitalWrite(_clk, HIGH);
     digitalWrite(_cs, LOW);
-
     SPIxfer(reg);
     SPIxfer(value);
-
     digitalWrite(_cs, HIGH);
+#if defined(USE_I2C) 
   }
+#endif
+
 }
 
 byte Adafruit_L3GD20::read8(l3gd20Registers_t reg)
 {
   byte value;
 
-  if (_cs == -1) {
+#if defined(USE_I2C) 
+ if (_cs == -1) {
     // use i2c
     Wire.beginTransmission(address);
     Wire.write((byte)reg);
@@ -240,18 +258,30 @@ byte Adafruit_L3GD20::read8(l3gd20Registers_t reg)
     value = Wire.read();
     Wire.endTransmission();
   } else {
-    digitalWrite(_clk, HIGH);
+#endif
+
+
+     digitalWrite(_clk, HIGH);
     digitalWrite(_cs, LOW);
 
     SPIxfer((uint8_t)reg | 0x80); // set READ bit
     value = SPIxfer(0xFF);
 
     digitalWrite(_cs, HIGH);
+#if defined(USE_I2C) 
   }
+#endif
 
   return value;
 }
 
+#if defined(HW_SPI)
+int8_t Adafruit_L3GD20::SPIxfer(uint8_t x) {
+  uint8_t value = 0;
+  value = SPI.transfer(x);
+  }
+
+#else 
 uint8_t Adafruit_L3GD20::SPIxfer(uint8_t x) {
   uint8_t value = 0;
 
@@ -266,6 +296,7 @@ uint8_t Adafruit_L3GD20::SPIxfer(uint8_t x) {
     if (digitalRead(_miso))
       value |= (1<<i);
   }
+#endif
 
   return value;
 }
